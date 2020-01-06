@@ -101,6 +101,8 @@ export type PythonFeatures = {
     version: 2 | 3;
     typeHints: boolean;
     dataClasses: boolean;
+    faust: boolean;
+    pydantic: boolean;
 };
 
 export const pythonOptions = {
@@ -108,10 +110,12 @@ export const pythonOptions = {
         "python-version",
         "Python version",
         [
-            ["2.7", { version: 2, typeHints: false, dataClasses: false }],
-            ["3.5", { version: 3, typeHints: false, dataClasses: false }],
-            ["3.6", { version: 3, typeHints: true, dataClasses: false }],
-            ["3.7", { version: 3, typeHints: true, dataClasses: true }]
+            ["2.7", { version: 2, typeHints: false, dataClasses: false, faust: false, pydantic: false }],
+            ["3.5", { version: 3, typeHints: false, dataClasses: false, faust: false, pydantic: false }],
+            ["3.6", { version: 3, typeHints: true, dataClasses: false, faust: false, pydantic: false }],
+            ["3.7", { version: 3, typeHints: true, dataClasses: true, faust: false, pydantic: false }],
+            ["3.7-faust", { version: 3, typeHints: true, dataClasses: true, faust: true, pydantic: false }],
+            ["3.7-pydantic", { version: 3, typeHints: true, dataClasses: false, faust: false, pydantic: true }]
         ],
         "3.6"
     ),
@@ -363,7 +367,13 @@ export class PythonRenderer extends ConvenienceRenderer {
 
     protected declarationLine(t: Type): Sourcelike {
         if (t instanceof ClassType) {
-            return ["class ", this.nameForNamedType(t), ":"];
+            if (this.pyOptions.features.faust) {
+                return ["class ", this.nameForNamedType(t), "(", this.withImport("faust", "Record"), ", coerce=True):"];
+            } else if (this.pyOptions.features.pydantic) {
+                return ["class ", this.nameForNamedType(t), "(", this.withImport("pydantic ", "BaseModel"), "):"];
+            } else {
+                return ["class ", this.nameForNamedType(t), ":"];
+            }
         }
         if (t instanceof EnumType) {
             return ["class ", this.nameForNamedType(t), "(", this.withImport("enum", "Enum"), "):"];
@@ -1050,12 +1060,12 @@ export class JSONPythonRenderer extends PythonRenderer {
                 compose(
                     value,
                     v => [
-                        this.conv("list"),
-                        "(",
-                        makeLambda(this.deserializer(identity, arrayType.items)).source,
-                        ", ",
-                        v,
-                        ")"
+                    this.conv("list"),
+                    "(",
+                    makeLambda(this.deserializer(identity, arrayType.items)).source,
+                    ", ",
+                    v,
+                    ")"
                     ]
                 ),
             classType =>
@@ -1067,12 +1077,12 @@ export class JSONPythonRenderer extends PythonRenderer {
                 compose(
                     value,
                     v => [
-                        this.conv("dict"),
-                        "(",
-                        makeLambda(this.deserializer(identity, mapType.values)).source,
-                        ", ",
-                        v,
-                        ")"
+                    this.conv("dict"),
+                    "(",
+                    makeLambda(this.deserializer(identity, mapType.values)).source,
+                    ", ",
+                    v,
+                    ")"
                     ]
                 ),
             enumType =>
@@ -1124,12 +1134,12 @@ export class JSONPythonRenderer extends PythonRenderer {
                 compose(
                     value,
                     v => [
-                        this.conv("list"),
-                        "(",
-                        makeLambda(this.serializer(identity, arrayType.items)).source,
-                        ", ",
-                        v,
-                        ")"
+                    this.conv("list"),
+                    "(",
+                    makeLambda(this.serializer(identity, arrayType.items)).source,
+                    ", ",
+                    v,
+                    ")"
                     ]
                 ),
             classType =>
@@ -1141,12 +1151,12 @@ export class JSONPythonRenderer extends PythonRenderer {
                 compose(
                     value,
                     v => [
-                        this.conv("dict"),
-                        "(",
-                        makeLambda(this.serializer(identity, mapType.values)).source,
-                        ", ",
-                        v,
-                        ")"
+                    this.conv("dict"),
+                    "(",
+                    makeLambda(this.serializer(identity, mapType.values)).source,
+                    ", ",
+                    v,
+                    ")"
                     ]
                 ),
             enumType =>
