@@ -1,6 +1,14 @@
 import { TargetLanguage } from "../TargetLanguage";
 import { StringTypeMapping } from "../TypeBuilder";
-import { TransformedStringTypeKind, PrimitiveStringTypeKind, Type, EnumType, ClassType, UnionType, ClassProperty } from "../Type";
+import {
+    TransformedStringTypeKind,
+    PrimitiveStringTypeKind,
+    Type,
+    EnumType,
+    ClassType,
+    UnionType,
+    ClassProperty
+} from "../Type";
 import { RenderContext } from "../Renderer";
 import { Option, getOptionValues, OptionValues, EnumOption, BooleanOption } from "../RendererOptions";
 import { ConvenienceRenderer, ForbiddenWordsInfo, topLevelNameOrder } from "../ConvenienceRenderer";
@@ -114,13 +122,13 @@ export const pythonOptions = {
             ["3.5", { version: 3, typeHints: false, dataClasses: false, faust: false, pydantic: false }],
             ["3.6", { version: 3, typeHints: true, dataClasses: false, faust: false, pydantic: false }],
             ["3.7", { version: 3, typeHints: true, dataClasses: true, faust: false, pydantic: false }],
-            ["3.7-faust", { version: 3, typeHints: true, dataClasses: true, faust: true, pydantic: false }],
+            ["3.7-faust", { version: 3, typeHints: true, dataClasses: false, faust: true, pydantic: false }],
             ["3.7-pydantic", { version: 3, typeHints: true, dataClasses: false, faust: false, pydantic: true }]
         ],
         "3.6"
     ),
     justTypes: new BooleanOption("just-types", "Classes only", false),
-    nicePropertyNames: new BooleanOption("nice-property-names", "Transform property names to be Pythonic", true),
+    nicePropertyNames: new BooleanOption("nice-property-names", "Transform property names to be Pythonic", true)
 };
 
 export class PythonTargetLanguage extends TargetLanguage {
@@ -157,7 +165,7 @@ export class PythonTargetLanguage extends TargetLanguage {
 
     protected makeRenderer(renderContext: RenderContext, untypedOptionValues: { [name: string]: any }): PythonRenderer {
         const options = getOptionValues(pythonOptions, untypedOptionValues);
-        if (options.justTypes) {
+        if (options.justTypes || options.features.faust || options.features.pydantic) {
             return new PythonRenderer(this, renderContext, options);
         } else {
             return new JSONPythonRenderer(this, renderContext, options);
@@ -347,7 +355,13 @@ export class PythonRenderer extends ConvenienceRenderer {
                 const maybeNullable = nullableFromUnion(unionType);
                 if (maybeNullable !== null) {
                     let rest: string[] = [];
-                    if (!this.getAlphabetizeProperties() && this.pyOptions.features.dataClasses) rest.push(" = None");
+                    if (
+                        !this.getAlphabetizeProperties() &&
+                        (this.pyOptions.features.dataClasses ||
+                            this.pyOptions.features.faust ||
+                            this.pyOptions.features.pydantic)
+                    )
+                        rest.push(" = None");
                     return [this.withTyping("Optional"), "[", this.pythonType(maybeNullable), "]", ...rest];
                 }
                 const memberTypes = Array.from(unionType.sortedMembers).map(m => this.pythonType(m));
@@ -391,6 +405,8 @@ export class PythonRenderer extends ConvenienceRenderer {
 
     protected emitClassMembers(t: ClassType): void {
         if (this.pyOptions.features.dataClasses) return;
+        if (this.pyOptions.features.faust) return;
+        if (this.pyOptions.features.pydantic) return;
 
         const args: Sourcelike[] = [];
         this.forEachClassProperty(t, "none", (name, _, cp) => {
@@ -425,9 +441,12 @@ export class PythonRenderer extends ConvenienceRenderer {
         return this.typeHint(" -> ", this.withTyping(type));
     }
 
-    protected sortClassProperties(properties: ReadonlyMap<string, ClassProperty>, propertyNames: ReadonlyMap<string, Name>): ReadonlyMap<string, ClassProperty> {
-        if (this.pyOptions.features.dataClasses) {
-            return mapSortBy(properties, (p: ClassProperty,) => {
+    protected sortClassProperties(
+        properties: ReadonlyMap<string, ClassProperty>,
+        propertyNames: ReadonlyMap<string, Name>
+    ): ReadonlyMap<string, ClassProperty> {
+        if (this.pyOptions.features.dataClasses || this.pyOptions.features.faust || this.pyOptions.features.pydantic) {
+            return mapSortBy(properties, (p: ClassProperty) => {
                 return p.type instanceof UnionType && nullableFromUnion(p.type) != null ? 1 : 0;
             });
         } else {
@@ -901,10 +920,7 @@ export class JSONPythonRenderer extends PythonRenderer {
 
     // Applies the converter function to `arg`
     protected convFn(cf: ConverterFunction, arg: ValueOrLambda): ValueOrLambda {
-        return compose(
-            arg,
-            { lambda: singleWord(this.conv(cf)), value: undefined }
-        );
+        return compose(arg, { lambda: singleWord(this.conv(cf)), value: undefined });
     }
 
     protected typeObject(t: Type): Sourcelike {
@@ -946,18 +962,19 @@ export class JSONPythonRenderer extends PythonRenderer {
         };
 
         const isType = (t: Type, valueToCheck: ValueOrLambda): ValueOrLambda => {
-            return compose(
-                valueToCheck,
-                v => [this.conv("is-type"), "(", this.typeObject(t), ", ", v, ")"]
-            );
+            return compose(valueToCheck, v => [this.conv("is-type"), "(", this.typeObject(t), ", ", v, ")"]);
         };
 
         if (xfer instanceof DecodingChoiceTransformer || xfer instanceof ChoiceTransformer) {
             const lambdas = xfer.transformers.map(x => makeLambda(this.transformer(identity, x, targetType)).source);
-            return compose(
-                inputTransformer,
-                v => [this.conv("union"), "([", arrayIntercalate(", ", lambdas), "], ", v, ")"]
-            );
+            return compose(inputTransformer, v => [
+                this.conv("union"),
+                "([",
+                arrayIntercalate(", ", lambdas),
+                "], ",
+                v,
+                ")"
+            ]);
         } else if (xfer instanceof DecodingTransformer) {
             const consumer = xfer.consumer;
             const vol = this.deserializer(inputTransformer, xfer.sourceType);
@@ -976,10 +993,7 @@ export class JSONPythonRenderer extends PythonRenderer {
             let vol: ValueOrLambda;
             switch (immediateTargetType.kind) {
                 case "integer":
-                    vol = compose(
-                        inputTransformer,
-                        v => ["int(", v, ")"]
-                    );
+                    vol = compose(inputTransformer, v => ["int(", v, ")"]);
                     break;
                 case "bool":
                     vol = this.convFn("from-stringified-bool", inputTransformer);
@@ -991,10 +1005,7 @@ export class JSONPythonRenderer extends PythonRenderer {
                     vol = this.convFn("from-datetime", inputTransformer);
                     break;
                 case "uuid":
-                    vol = compose(
-                        inputTransformer,
-                        v => [this.withImport("uuid", "UUID"), "(", v, ")"]
-                    );
+                    vol = compose(inputTransformer, v => [this.withImport("uuid", "UUID"), "(", v, ")"]);
                     break;
                 default:
                     return panic(`Parsing of ${immediateTargetType.kind} in a transformer is not supported`);
@@ -1005,31 +1016,19 @@ export class JSONPythonRenderer extends PythonRenderer {
             let vol: ValueOrLambda;
             switch (xfer.sourceType.kind) {
                 case "integer":
-                    vol = compose(
-                        inputTransformer,
-                        v => ["str(", v, ")"]
-                    );
+                    vol = compose(inputTransformer, v => ["str(", v, ")"]);
                     break;
                 case "bool":
-                    vol = compose(
-                        inputTransformer,
-                        v => ["str(", v, ").lower()"]
-                    );
+                    vol = compose(inputTransformer, v => ["str(", v, ").lower()"]);
                     break;
                 case "enum":
                     vol = this.serializer(inputTransformer, xfer.sourceType);
                     break;
                 case "date-time":
-                    vol = compose(
-                        inputTransformer,
-                        v => [v, ".isoformat()"]
-                    );
+                    vol = compose(inputTransformer, v => [v, ".isoformat()"]);
                     break;
                 case "uuid":
-                    vol = compose(
-                        inputTransformer,
-                        v => ["str(", v, ")"]
-                    );
+                    vol = compose(inputTransformer, v => ["str(", v, ")"]);
                     break;
                 default:
                     return panic(`Parsing of ${xfer.sourceType.kind} in a transformer is not supported`);
@@ -1057,48 +1056,42 @@ export class JSONPythonRenderer extends PythonRenderer {
             _doubleType => this.convFn("from-float", value),
             _stringType => this.convFn("str", value),
             arrayType =>
-                compose(
-                    value,
-                    v => [
+                compose(value, v => [
                     this.conv("list"),
                     "(",
                     makeLambda(this.deserializer(identity, arrayType.items)).source,
                     ", ",
                     v,
                     ")"
-                    ]
-                ),
+                ]),
             classType =>
-                compose(
-                    value,
-                    { lambda: singleWord(this.nameForNamedType(classType), ".from_dict"), value: undefined }
-                ),
+                compose(value, {
+                    lambda: singleWord(this.nameForNamedType(classType), ".from_dict"),
+                    value: undefined
+                }),
             mapType =>
-                compose(
-                    value,
-                    v => [
+                compose(value, v => [
                     this.conv("dict"),
                     "(",
                     makeLambda(this.deserializer(identity, mapType.values)).source,
                     ", ",
                     v,
                     ")"
-                    ]
-                ),
-            enumType =>
-                compose(
-                    value,
-                    { lambda: singleWord(this.nameForNamedType(enumType)), value: undefined }
-                ),
+                ]),
+            enumType => compose(value, { lambda: singleWord(this.nameForNamedType(enumType)), value: undefined }),
             unionType => {
                 // FIXME: handle via transformers
                 const deserializers = Array.from(unionType.members).map(
                     m => makeLambda(this.deserializer(identity, m)).source
                 );
-                return compose(
-                    value,
-                    v => [this.conv("union"), "([", arrayIntercalate(", ", deserializers), "], ", v, ")"]
-                );
+                return compose(value, v => [
+                    this.conv("union"),
+                    "([",
+                    arrayIntercalate(", ", deserializers),
+                    "], ",
+                    v,
+                    ")"
+                ]);
             },
             transformedStringType => {
                 // FIXME: handle via transformers
@@ -1106,10 +1099,7 @@ export class JSONPythonRenderer extends PythonRenderer {
                     return this.convFn("from-datetime", value);
                 }
                 if (transformedStringType.kind === "uuid") {
-                    return compose(
-                        value,
-                        v => [this.withImport("uuid", "UUID"), "(", v, ")"]
-                    );
+                    return compose(value, v => [this.withImport("uuid", "UUID"), "(", v, ")"]);
                 }
                 return panic(`Transformed type ${transformedStringType.kind} not supported`);
             }
@@ -1131,60 +1121,45 @@ export class JSONPythonRenderer extends PythonRenderer {
             _doubleType => this.convFn("to-float", value),
             _stringType => this.convFn("str", value),
             arrayType =>
-                compose(
-                    value,
-                    v => [
+                compose(value, v => [
                     this.conv("list"),
                     "(",
                     makeLambda(this.serializer(identity, arrayType.items)).source,
                     ", ",
                     v,
                     ")"
-                    ]
-                ),
+                ]),
             classType =>
-                compose(
-                    value,
-                    v => [this.conv("to-class"), "(", this.nameForNamedType(classType), ", ", v, ")"]
-                ),
+                compose(value, v => [this.conv("to-class"), "(", this.nameForNamedType(classType), ", ", v, ")"]),
             mapType =>
-                compose(
-                    value,
-                    v => [
+                compose(value, v => [
                     this.conv("dict"),
                     "(",
                     makeLambda(this.serializer(identity, mapType.values)).source,
                     ", ",
                     v,
                     ")"
-                    ]
-                ),
-            enumType =>
-                compose(
-                    value,
-                    v => [this.conv("to-enum"), "(", this.nameForNamedType(enumType), ", ", v, ")"]
-                ),
+                ]),
+            enumType => compose(value, v => [this.conv("to-enum"), "(", this.nameForNamedType(enumType), ", ", v, ")"]),
             unionType => {
                 const serializers = Array.from(unionType.members).map(
                     m => makeLambda(this.serializer(identity, m)).source
                 );
-                return compose(
-                    value,
-                    v => [this.conv("union"), "([", arrayIntercalate(", ", serializers), "], ", v, ")"]
-                );
+                return compose(value, v => [
+                    this.conv("union"),
+                    "([",
+                    arrayIntercalate(", ", serializers),
+                    "], ",
+                    v,
+                    ")"
+                ]);
             },
             transformedStringType => {
                 if (transformedStringType.kind === "date-time") {
-                    return compose(
-                        value,
-                        v => [v, ".isoformat()"]
-                    );
+                    return compose(value, v => [v, ".isoformat()"]);
                 }
                 if (transformedStringType.kind === "uuid") {
-                    return compose(
-                        value,
-                        v => ["str(", v, ")"]
-                    );
+                    return compose(value, v => ["str(", v, ")"]);
                 }
                 return panic(`Transformed type ${transformedStringType.kind} not supported`);
             }
