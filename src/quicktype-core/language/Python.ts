@@ -10,7 +10,7 @@ import {
     ClassProperty
 } from "../Type";
 import { RenderContext } from "../Renderer";
-import { Option, getOptionValues, OptionValues, EnumOption, BooleanOption } from "../RendererOptions";
+import { Option, getOptionValues, OptionValues, EnumOption, BooleanOption, StringOption } from "../RendererOptions";
 import { ConvenienceRenderer, ForbiddenWordsInfo, topLevelNameOrder } from "../ConvenienceRenderer";
 import { Namer, funPrefixNamer, Name, DependencyName } from "../Naming";
 import {
@@ -109,8 +109,7 @@ export type PythonFeatures = {
     version: 2 | 3;
     typeHints: boolean;
     dataClasses: boolean;
-    faust: boolean;
-    pydantic: boolean;
+    custom: boolean;
 };
 
 export const pythonOptions = {
@@ -118,22 +117,45 @@ export const pythonOptions = {
         "python-version",
         "Python version",
         [
-            ["2.7", { version: 2, typeHints: false, dataClasses: false, faust: false, pydantic: false }],
-            ["3.5", { version: 3, typeHints: false, dataClasses: false, faust: false, pydantic: false }],
-            ["3.6", { version: 3, typeHints: true, dataClasses: false, faust: false, pydantic: false }],
-            ["3.7", { version: 3, typeHints: true, dataClasses: true, faust: false, pydantic: false }],
-            ["3.7-faust", { version: 3, typeHints: true, dataClasses: false, faust: true, pydantic: false }],
-            ["3.7-pydantic", { version: 3, typeHints: true, dataClasses: false, faust: false, pydantic: true }]
+            ["2.7", { version: 2, typeHints: false, dataClasses: false, custom: false }],
+            ["3.5", { version: 3, typeHints: false, dataClasses: false, custom: false }],
+            ["3.6", { version: 3, typeHints: true, dataClasses: false, custom: false }],
+            ["3.7", { version: 3, typeHints: true, dataClasses: true, custom: false }],
+            ["3.7-custom", { version: 3, typeHints: true, dataClasses: false, custom: true }]
         ],
         "3.6"
     ),
     justTypes: new BooleanOption("just-types", "Classes only", false),
-    nicePropertyNames: new BooleanOption("nice-property-names", "Transform property names to be Pythonic", true)
+    nicePropertyNames: new BooleanOption("nice-property-names", "Transform property names to be Pythonic", true),
+    customBaseClass: new StringOption("base-class", "Base class for data classes", "CUSTOM_BASE", "", "secondary"),
+    customBaseImport: new StringOption(
+        "base-class-import",
+        "Import for base class",
+        "CUSTOM_BASE_IMPORT",
+        "",
+        "secondary"
+    ),
+    customDecorator: new StringOption("decorator", "Decorator for data classes", "CUSTOM_DECORATOR", "", "secondary"),
+    customDecoratorImport: new StringOption(
+        "decorator-import",
+        "Import for decorator",
+        "CUSTOM_DECORATOR_IMPORT",
+        "",
+        "secondary"
+    )
 };
 
 export class PythonTargetLanguage extends TargetLanguage {
     protected getOptions(): Option<any>[] {
-        return [pythonOptions.features, pythonOptions.justTypes, pythonOptions.nicePropertyNames];
+        return [
+            pythonOptions.features,
+            pythonOptions.justTypes,
+            pythonOptions.nicePropertyNames,
+            pythonOptions.customBaseClass,
+            pythonOptions.customBaseImport,
+            pythonOptions.customDecorator,
+            pythonOptions.customDecoratorImport
+        ];
     }
 
     get stringTypeMapping(): StringTypeMapping {
@@ -165,7 +187,7 @@ export class PythonTargetLanguage extends TargetLanguage {
 
     protected makeRenderer(renderContext: RenderContext, untypedOptionValues: { [name: string]: any }): PythonRenderer {
         const options = getOptionValues(pythonOptions, untypedOptionValues);
-        if (options.justTypes || options.features.faust || options.features.pydantic) {
+        if (options.justTypes || options.features.custom) {
             return new PythonRenderer(this, renderContext, options);
         } else {
             return new JSONPythonRenderer(this, renderContext, options);
@@ -357,9 +379,7 @@ export class PythonRenderer extends ConvenienceRenderer {
                     let rest: string[] = [];
                     if (
                         !this.getAlphabetizeProperties() &&
-                        (this.pyOptions.features.dataClasses ||
-                            this.pyOptions.features.faust ||
-                            this.pyOptions.features.pydantic)
+                        (this.pyOptions.features.dataClasses || this.pyOptions.features.custom)
                     )
                         rest.push(" = None");
                     return [this.withTyping("Optional"), "[", this.pythonType(maybeNullable), "]", ...rest];
@@ -381,10 +401,20 @@ export class PythonRenderer extends ConvenienceRenderer {
 
     protected declarationLine(t: Type): Sourcelike {
         if (t instanceof ClassType) {
-            if (this.pyOptions.features.faust) {
-                return ["class ", this.nameForNamedType(t), "(", this.withImport("faust", "Record"), ", coerce=True):"];
-            } else if (this.pyOptions.features.pydantic) {
-                return ["class ", this.nameForNamedType(t), "(", this.withImport("pydantic ", "BaseModel"), "):"];
+            if (this.pyOptions.features.custom) {
+                if (this.pyOptions.customBaseClass && this.pyOptions.customBaseImport) {
+                    return [
+                        "class ",
+                        this.nameForNamedType(t),
+                        "(",
+                        this.withImport(this.pyOptions.customBaseImport, this.pyOptions.customBaseClass),
+                        "):"
+                    ];
+                } else if (this.pyOptions.customBaseClass) {
+                    return ["class ", this.nameForNamedType(t), "(", this.pyOptions.customBaseClass, "):"];
+                } else {
+                    return ["class ", this.nameForNamedType(t), ":"];
+                }
             } else {
                 return ["class ", this.nameForNamedType(t), ":"];
             }
@@ -405,8 +435,7 @@ export class PythonRenderer extends ConvenienceRenderer {
 
     protected emitClassMembers(t: ClassType): void {
         if (this.pyOptions.features.dataClasses) return;
-        if (this.pyOptions.features.faust) return;
-        if (this.pyOptions.features.pydantic) return;
+        if (this.pyOptions.features.custom) return;
 
         const args: Sourcelike[] = [];
         this.forEachClassProperty(t, "none", (name, _, cp) => {
@@ -445,7 +474,7 @@ export class PythonRenderer extends ConvenienceRenderer {
         properties: ReadonlyMap<string, ClassProperty>,
         propertyNames: ReadonlyMap<string, Name>
     ): ReadonlyMap<string, ClassProperty> {
-        if (this.pyOptions.features.dataClasses || this.pyOptions.features.faust || this.pyOptions.features.pydantic) {
+        if (this.pyOptions.features.dataClasses || this.pyOptions.features.custom) {
             return mapSortBy(properties, (p: ClassProperty) => {
                 return p.type instanceof UnionType && nullableFromUnion(p.type) != null ? 1 : 0;
             });
@@ -457,6 +486,16 @@ export class PythonRenderer extends ConvenienceRenderer {
     protected emitClass(t: ClassType): void {
         if (this.pyOptions.features.dataClasses) {
             this.emitLine("@", this.withImport("dataclasses", "dataclass"));
+        }
+        if (this.pyOptions.customDecorator) {
+            if (this.pyOptions.customDecoratorImport) {
+                this.emitLine(
+                    "@",
+                    this.withImport(this.pyOptions.customDecoratorImport, this.pyOptions.customDecorator)
+                );
+            } else {
+                this.emitLine("@", this.pyOptions.customDecorator);
+            }
         }
         this.declareType(t, () => {
             if (this.pyOptions.features.typeHints) {
