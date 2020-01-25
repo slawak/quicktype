@@ -161,7 +161,8 @@ export class PythonTargetLanguage extends TargetLanguage {
     get stringTypeMapping(): StringTypeMapping {
         const mapping: Map<TransformedStringTypeKind, PrimitiveStringTypeKind> = new Map();
         const dateTimeType = "date-time";
-        mapping.set("date", dateTimeType);
+        const dateType = "date";
+        mapping.set("date", dateType);
         mapping.set("time", dateTimeType);
         mapping.set("date-time", dateTimeType);
         mapping.set("uuid", "uuid");
@@ -390,6 +391,9 @@ export class PythonRenderer extends ConvenienceRenderer {
             transformedStringType => {
                 if (transformedStringType.kind === "date-time") {
                     return this.withImport("datetime", "datetime");
+                }
+                if (transformedStringType.kind === "date") {
+                    return this.withImport("datetime", "date");
                 }
                 if (transformedStringType.kind === "uuid") {
                     return this.withImport("uuid", "UUID");
