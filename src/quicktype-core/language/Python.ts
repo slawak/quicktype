@@ -127,6 +127,7 @@ export const pythonOptions = {
     ),
     justTypes: new BooleanOption("just-types", "Classes only", false),
     nicePropertyNames: new BooleanOption("nice-property-names", "Transform property names to be Pythonic", true),
+    specifyEnumType: new BooleanOption("specify-enum-type", "Specify enum data type", false, "secondary"),
     customBaseClass: new StringOption("base-class", "Base class for data classes", "CUSTOM_BASE", "", "secondary"),
     customBaseImport: new StringOption(
         "base-class-import",
@@ -151,6 +152,7 @@ export class PythonTargetLanguage extends TargetLanguage {
             pythonOptions.features,
             pythonOptions.justTypes,
             pythonOptions.nicePropertyNames,
+            pythonOptions.specifyEnumType,
             pythonOptions.customBaseClass,
             pythonOptions.customBaseImport,
             pythonOptions.customDecorator,
@@ -424,7 +426,11 @@ export class PythonRenderer extends ConvenienceRenderer {
             }
         }
         if (t instanceof EnumType) {
-            return ["class ", this.nameForNamedType(t), "(", this.withImport("enum", "Enum"), "):"];
+            if (this.pyOptions.specifyEnumType) {
+                return ["class ", this.nameForNamedType(t), "(str, ", this.withImport("enum", "Enum"), "):"];
+            } else {
+                return ["class ", this.nameForNamedType(t), "(", this.withImport("enum", "Enum"), "):"];
+            }
         }
         return panic(`Can't declare type ${t.kind}`);
     }
