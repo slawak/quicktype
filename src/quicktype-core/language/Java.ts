@@ -18,7 +18,7 @@ import {
     splitIntoWords,
     standardUnicodeHexEscape,
     utf16ConcatMap,
-    utf16LegalizeCharacters,
+    utf16LegalizeCharacters
 } from "../support/Strings";
 import { assert, assertNever, defined, panic } from "../support/Support";
 import { TargetLanguage } from "../TargetLanguage";
@@ -32,7 +32,7 @@ export const javaOptions = {
         "Use T[] or List<T>",
         [
             ["array", false],
-            ["list", true],
+            ["list", true]
         ],
         "array"
     ),
@@ -51,6 +51,7 @@ export const javaOptions = {
     packageName: new StringOption("package", "Generated package name", "NAME", "io.quicktype"),
     lombok: new BooleanOption("lombok", "Use lombok", false, "primary"),
     lombokCopyAnnotations: new BooleanOption("lombok-copy-annotations", "Copy accessor annotations", true, "secondary"),
+    lombokImmutable: new BooleanOption("lombok-immutable", "Immutable annotations", true, "secondary")
 };
 
 export class JavaTargetLanguage extends TargetLanguage {
@@ -67,6 +68,7 @@ export class JavaTargetLanguage extends TargetLanguage {
             javaOptions.packageName,
             javaOptions.lombok,
             javaOptions.lombokCopyAnnotations,
+            javaOptions.lombokImmutable
         ];
     }
 
@@ -157,7 +159,7 @@ const javaKeywords = [
     "while",
     "null",
     "false",
-    "true",
+    "true"
 ];
 
 export const stringEscape = utf16ConcatMap(escapeNonPrintableMapper(isAscii, standardUnicodeHexEscape));
@@ -193,7 +195,7 @@ export function javaNameStyle(
 }
 
 abstract class JavaDateTimeProvider {
-    constructor(protected readonly _renderer: JavaRenderer, protected readonly _className: string) { }
+    constructor(protected readonly _renderer: JavaRenderer, protected readonly _className: string) {}
     abstract keywords: string[];
 
     abstract dateTimeImports: string[];
@@ -260,41 +262,49 @@ class Java8DateTimeProvider extends JavaDateTimeProvider {
 
     emitDateTimeConverters(): void {
         this._renderer.ensureBlankLine();
-        this._renderer.emitLine("private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()");
-        this._renderer.indent(() => this._renderer.indent(() => {
-            this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_DATE_TIME)");
-            this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_OFFSET_DATE_TIME)");
-            this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_INSTANT)");
-            this._renderer.emitLine('.appendOptional(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SX"))');
-            this._renderer.emitLine('.appendOptional(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssX"))');
-            this._renderer.emitLine('.appendOptional(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))');
-            this._renderer.emitLine(".toFormatter()");
-            this._renderer.emitLine(".withZone(ZoneOffset.UTC);");
-        }));
-        this._renderer.ensureBlankLine();
-        this._renderer.emitBlock("public static OffsetDateTime parseDateTimeString(String str)",
-            () => {
-                this._renderer.emitLine("return ZonedDateTime.from(Converter.DATE_TIME_FORMATTER.parse(str)).toOffsetDateTime();");
-            }
+        this._renderer.emitLine(
+            "private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()"
         );
+        this._renderer.indent(() =>
+            this._renderer.indent(() => {
+                this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_DATE_TIME)");
+                this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_OFFSET_DATE_TIME)");
+                this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_INSTANT)");
+                this._renderer.emitLine('.appendOptional(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SX"))');
+                this._renderer.emitLine('.appendOptional(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssX"))');
+                this._renderer.emitLine('.appendOptional(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))');
+                this._renderer.emitLine(".toFormatter()");
+                this._renderer.emitLine(".withZone(ZoneOffset.UTC);");
+            })
+        );
+        this._renderer.ensureBlankLine();
+        this._renderer.emitBlock("public static OffsetDateTime parseDateTimeString(String str)", () => {
+            this._renderer.emitLine(
+                "return ZonedDateTime.from(Converter.DATE_TIME_FORMATTER.parse(str)).toOffsetDateTime();"
+            );
+        });
 
         this._renderer.ensureBlankLine();
-        this._renderer.emitLine("private static final DateTimeFormatter TIME_FORMATTER = new DateTimeFormatterBuilder()");
-        this._renderer.indent(() => this._renderer.indent(() => {
-            this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_TIME)");
-            this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_OFFSET_TIME)");
-            this._renderer.emitLine(".parseDefaulting(ChronoField.YEAR, 2020)");
-            this._renderer.emitLine(".parseDefaulting(ChronoField.MONTH_OF_YEAR, 1)");
-            this._renderer.emitLine(".parseDefaulting(ChronoField.DAY_OF_MONTH, 1)");
-            this._renderer.emitLine(".toFormatter()");
-            this._renderer.emitLine(".withZone(ZoneOffset.UTC);");
-        }));
-        this._renderer.ensureBlankLine();
-        this._renderer.emitBlock("public static OffsetTime parseTimeString(String str)",
-            () => {
-                this._renderer.emitLine("return ZonedDateTime.from(Converter.TIME_FORMATTER.parse(str)).toOffsetDateTime().toOffsetTime();");
-            }
+        this._renderer.emitLine(
+            "private static final DateTimeFormatter TIME_FORMATTER = new DateTimeFormatterBuilder()"
         );
+        this._renderer.indent(() =>
+            this._renderer.indent(() => {
+                this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_TIME)");
+                this._renderer.emitLine(".appendOptional(DateTimeFormatter.ISO_OFFSET_TIME)");
+                this._renderer.emitLine(".parseDefaulting(ChronoField.YEAR, 2020)");
+                this._renderer.emitLine(".parseDefaulting(ChronoField.MONTH_OF_YEAR, 1)");
+                this._renderer.emitLine(".parseDefaulting(ChronoField.DAY_OF_MONTH, 1)");
+                this._renderer.emitLine(".toFormatter()");
+                this._renderer.emitLine(".withZone(ZoneOffset.UTC);");
+            })
+        );
+        this._renderer.ensureBlankLine();
+        this._renderer.emitBlock("public static OffsetTime parseTimeString(String str)", () => {
+            this._renderer.emitLine(
+                "return ZonedDateTime.from(Converter.TIME_FORMATTER.parse(str)).toOffsetDateTime().toOffsetTime();"
+            );
+        });
     }
 
     convertStringToDateTime(variable: Sourcelike): Sourcelike {
@@ -320,22 +330,15 @@ class Java8DateTimeProvider extends JavaDateTimeProvider {
     convertDateToString(variable: Sourcelike): Sourcelike {
         return [variable, ".format(java.time.format.DateTimeFormatter.ISO_DATE)"];
     }
-
 }
 
 class JavaLegacyDateTimeProvider extends JavaDateTimeProvider {
-    keywords = [
-        "SimpleDateFormat",
-        "Date",
-    ];
+    keywords = ["SimpleDateFormat", "Date"];
 
     dateTimeImports: string[] = ["java.util.Date"];
     dateImports: string[] = ["java.util.Date"];
     timeImports: string[] = ["java.util.Date"];
-    converterImports: string[] = [
-        "java.util.Date",
-        "java.text.SimpleDateFormat",
-    ];
+    converterImports: string[] = ["java.util.Date", "java.text.SimpleDateFormat"];
 
     dateTimeType: string = "Date";
     dateType: string = "Date";
@@ -348,54 +351,48 @@ class JavaLegacyDateTimeProvider extends JavaDateTimeProvider {
     emitDateTimeConverters(): void {
         this._renderer.ensureBlankLine();
         this._renderer.emitLine("private static final String[] DATE_TIME_FORMATS = {");
-        this._renderer.indent(() => this._renderer.indent(() => {
-            this._renderer.emitLine('"yyyy-MM-dd\'T\'HH:mm:ss.SX",');
-            this._renderer.emitLine('"yyyy-MM-dd\'T\'HH:mm:ss.S",');
-            this._renderer.emitLine('"yyyy-MM-dd\'T\'HH:mm:ssX",');
-            this._renderer.emitLine('"yyyy-MM-dd\'T\'HH:mm:ss",');
-            this._renderer.emitLine('"yyyy-MM-dd HH:mm:ss.SX",');
-            this._renderer.emitLine('"yyyy-MM-dd HH:mm:ss.S",');
-            this._renderer.emitLine('"yyyy-MM-dd HH:mm:ssX",');
-            this._renderer.emitLine('"yyyy-MM-dd HH:mm:ss",');
-            this._renderer.emitLine('"HH:mm:ss.SZ",');
-            this._renderer.emitLine('"HH:mm:ss.S",');
-            this._renderer.emitLine('"HH:mm:ssZ",');
-            this._renderer.emitLine('"HH:mm:ss",');
-            this._renderer.emitLine('"yyyy-MM-dd",');
-        }));
+        this._renderer.indent(() =>
+            this._renderer.indent(() => {
+                this._renderer.emitLine("\"yyyy-MM-dd'T'HH:mm:ss.SX\",");
+                this._renderer.emitLine("\"yyyy-MM-dd'T'HH:mm:ss.S\",");
+                this._renderer.emitLine("\"yyyy-MM-dd'T'HH:mm:ssX\",");
+                this._renderer.emitLine("\"yyyy-MM-dd'T'HH:mm:ss\",");
+                this._renderer.emitLine('"yyyy-MM-dd HH:mm:ss.SX",');
+                this._renderer.emitLine('"yyyy-MM-dd HH:mm:ss.S",');
+                this._renderer.emitLine('"yyyy-MM-dd HH:mm:ssX",');
+                this._renderer.emitLine('"yyyy-MM-dd HH:mm:ss",');
+                this._renderer.emitLine('"HH:mm:ss.SZ",');
+                this._renderer.emitLine('"HH:mm:ss.S",');
+                this._renderer.emitLine('"HH:mm:ssZ",');
+                this._renderer.emitLine('"HH:mm:ss",');
+                this._renderer.emitLine('"yyyy-MM-dd",');
+            })
+        );
         this._renderer.emitLine("};");
         this._renderer.ensureBlankLine();
-        this._renderer.emitBlock("public static Date parseAllDateTimeString(String str)",
-            () => {
-                this._renderer.emitBlock("for (String format : DATE_TIME_FORMATS)", () => {
-                    this._renderer.emitIgnoredTryCatchBlock(() => {
-                        this._renderer.emitLine("return new SimpleDateFormat(format).parse(str);");
-                    });
+        this._renderer.emitBlock("public static Date parseAllDateTimeString(String str)", () => {
+            this._renderer.emitBlock("for (String format : DATE_TIME_FORMATS)", () => {
+                this._renderer.emitIgnoredTryCatchBlock(() => {
+                    this._renderer.emitLine("return new SimpleDateFormat(format).parse(str);");
                 });
-                this._renderer.emitLine("return null;");
-            }
-        );
+            });
+            this._renderer.emitLine("return null;");
+        });
 
         this._renderer.ensureBlankLine();
-        this._renderer.emitBlock("public static String serializeDateTime(Date datetime)",
-            () => {
-                this._renderer.emitLine('return new SimpleDateFormat("yyyy-MM-dd\'T\'hh:mm:ssZ").format(datetime);');
-            }
-        );
+        this._renderer.emitBlock("public static String serializeDateTime(Date datetime)", () => {
+            this._renderer.emitLine("return new SimpleDateFormat(\"yyyy-MM-dd'T'hh:mm:ssZ\").format(datetime);");
+        });
 
         this._renderer.ensureBlankLine();
-        this._renderer.emitBlock("public static String serializeDate(Date datetime)",
-            () => {
-                this._renderer.emitLine('return new SimpleDateFormat("yyyy-MM-dd").format(datetime);');
-            }
-        );
+        this._renderer.emitBlock("public static String serializeDate(Date datetime)", () => {
+            this._renderer.emitLine('return new SimpleDateFormat("yyyy-MM-dd").format(datetime);');
+        });
 
         this._renderer.ensureBlankLine();
-        this._renderer.emitBlock("public static String serializeTime(Date datetime)",
-            () => {
-                this._renderer.emitLine('return new SimpleDateFormat("hh:mm:ssZ").format(datetime);');
-            }
-        );
+        this._renderer.emitBlock("public static String serializeTime(Date datetime)", () => {
+            this._renderer.emitLine('return new SimpleDateFormat("hh:mm:ssZ").format(datetime);');
+        });
     }
 
     shouldEmitTimeConverter = false;
@@ -437,7 +434,7 @@ export class JavaRenderer extends ConvenienceRenderer {
     constructor(
         targetLanguage: TargetLanguage,
         renderContext: RenderContext,
-        protected readonly _options: OptionValues<typeof javaOptions>,
+        protected readonly _options: OptionValues<typeof javaOptions>
     ) {
         super(targetLanguage, renderContext);
 
@@ -453,7 +450,12 @@ export class JavaRenderer extends ConvenienceRenderer {
     }
 
     protected forbiddenNamesForGlobalNamespace(): string[] {
-        const keywords = [...javaKeywords, ...this._converterKeywords, this._converterClassname, ...this._dateTimeProvider.keywords];
+        const keywords = [
+            ...javaKeywords,
+            ...this._converterKeywords,
+            this._converterClassname,
+            ...this._dateTimeProvider.keywords
+        ];
         return keywords;
     }
 
@@ -498,12 +500,12 @@ export class JavaRenderer extends ConvenienceRenderer {
         const getterName = new DependencyName(
             this.getNameStyling("propertyNamingFunction"),
             name.order,
-            (lookup) => `get_${lookup(name)}`
+            lookup => `get_${lookup(name)}`
         );
         const setterName = new DependencyName(
             this.getNameStyling("propertyNamingFunction"),
             name.order,
-            (lookup) => `set_${lookup(name)}`
+            lookup => `set_${lookup(name)}`
         );
         return [getterName, setterName];
     }
@@ -522,15 +524,15 @@ export class JavaRenderer extends ConvenienceRenderer {
 
     private getNameStyling(convention: string): Namer {
         const styling: { [key: string]: Namer } = {
-            typeNamingFunction: funPrefixNamer("types", (n) =>
+            typeNamingFunction: funPrefixNamer("types", n =>
                 javaNameStyle(true, false, n, acronymStyle(this._options.acronymStyle))
             ),
-            propertyNamingFunction: funPrefixNamer("properties", (n) =>
+            propertyNamingFunction: funPrefixNamer("properties", n =>
                 javaNameStyle(false, false, n, acronymStyle(this._options.acronymStyle))
             ),
-            enumCaseNamingFunction: funPrefixNamer("enum-cases", (n) =>
+            enumCaseNamingFunction: funPrefixNamer("enum-cases", n =>
                 javaNameStyle(true, true, n, acronymStyle(this._options.acronymStyle))
-            ),
+            )
         };
         return styling[convention];
     }
@@ -622,28 +624,36 @@ export class JavaRenderer extends ConvenienceRenderer {
     protected javaType(reference: boolean, t: Type, withIssues: boolean = false): Sourcelike {
         return matchType<Sourcelike>(
             t,
-            (_anyType) => maybeAnnotated(withIssues, anyTypeIssueAnnotation, "Object"),
-            (_nullType) => maybeAnnotated(withIssues, nullTypeIssueAnnotation, "Object"),
-            (_boolType) => (reference ? "Boolean" : "boolean"),
-            (_integerType) => (reference ? "Long" : "long"),
-            (_doubleType) => (reference ? "Double" : "double"),
-            (_stringType) => "String",
-            (arrayType) => {
-                if (this._options.useList) {
+            _anyType => maybeAnnotated(withIssues, anyTypeIssueAnnotation, "Object"),
+            _nullType => maybeAnnotated(withIssues, nullTypeIssueAnnotation, "Object"),
+            _boolType => (reference ? "Boolean" : "boolean"),
+            _integerType => (reference ? "Long" : "long"),
+            _doubleType => (reference ? "Double" : "double"),
+            _stringType => "String",
+            arrayType => {
+                if (this._options.lombok && this._options.lombokImmutable) {
+                    return ["PVector<", this.javaType(true, arrayType.items, withIssues), ">"];
+                } else if (this._options.useList) {
                     return ["List<", this.javaType(true, arrayType.items, withIssues), ">"];
                 } else {
                     return [this.javaType(false, arrayType.items, withIssues), "[]"];
                 }
             },
-            (classType) => this.nameForNamedType(classType),
-            (mapType) => ["Map<String, ", this.javaType(true, mapType.values, withIssues), ">"],
-            (enumType) => this.nameForNamedType(enumType),
-            (unionType) => {
+            classType => this.nameForNamedType(classType),
+            mapType => {
+                if (this._options.lombok && this._options.lombokImmutable) {
+                    return ["PMap<String, ", this.javaType(true, mapType.values, withIssues), ">"];
+                } else {
+                    return ["Map<String, ", this.javaType(true, mapType.values, withIssues), ">"];
+                }
+            },
+            enumType => this.nameForNamedType(enumType),
+            unionType => {
                 const nullable = nullableFromUnion(unionType);
                 if (nullable !== null) return this.javaType(true, nullable, withIssues);
                 return this.nameForNamedType(unionType);
             },
-            (transformedStringType) => {
+            transformedStringType => {
                 if (transformedStringType.kind === "time") {
                     return this._dateTimeProvider.timeType;
                 }
@@ -664,28 +674,36 @@ export class JavaRenderer extends ConvenienceRenderer {
     protected javaImport(t: Type): string[] {
         return matchType<string[]>(
             t,
-            (_anyType) => [],
-            (_nullType) => [],
-            (_boolType) => [],
-            (_integerType) => [],
-            (_doubleType) => [],
-            (_stringType) => [],
-            (arrayType) => {
-                if (this._options.useList) {
+            _anyType => [],
+            _nullType => [],
+            _boolType => [],
+            _integerType => [],
+            _doubleType => [],
+            _stringType => [],
+            arrayType => {
+                if (this._options.lombok && this._options.lombokImmutable) {
+                    return [...this.javaImport(arrayType.items), "org.pcollections.PVector"];
+                } else if (this._options.useList) {
                     return [...this.javaImport(arrayType.items), "java.util.List"];
                 } else {
                     return [...this.javaImport(arrayType.items)];
                 }
             },
-            (_classType) => [],
-            (mapType) => [...this.javaImport(mapType.values), "java.util.Map"],
-            (_enumType) => [],
-            (unionType) => {
+            _classType => [],
+            mapType => {
+                if (this._options.lombok && this._options.lombokImmutable) {
+                    return [...this.javaImport(mapType.values), "org.pcollections.PMap"];
+                } else {
+                    return [...this.javaImport(mapType.values), "java.util.Map"];
+                }
+            },
+            _enumType => [],
+            unionType => {
                 const imports: string[] = [];
-                unionType.members.forEach((type) => this.javaImport(type).forEach((imp) => imports.push(imp)));
+                unionType.members.forEach(type => this.javaImport(type).forEach(imp => imports.push(imp)));
                 return imports;
             },
-            (transformedStringType) => {
+            transformedStringType => {
                 if (transformedStringType.kind === "time") {
                     return this._dateTimeProvider.timeImports;
                 }
@@ -722,8 +740,14 @@ export class JavaRenderer extends ConvenienceRenderer {
     }
 
     protected emitClassAttributes(_c: ClassType, _className: Name): void {
-        if (this._options.lombok) {
+        if (this._options.lombok && this._options.lombokImmutable) {
+            this.emitLine(["@JsonDeserialize(builder = ", _className, ".", _className, "Builder.class)"]);
+            this.emitLine("@lombok.Value");
+            this.emitLine("@lombok.Builder");
+            this.emitLine("@lombok.With");
+        } else if (this._options.lombok) {
             this.emitLine("@lombok.Data");
+            this.emitLine("@lombok.Builder");
         }
     }
 
@@ -740,13 +764,13 @@ export class JavaRenderer extends ConvenienceRenderer {
 
     protected importsForType(t: ClassType | UnionType | EnumType): string[] {
         if (t instanceof ClassType) {
-            return [];
+            return ["com.fasterxml.jackson.databind.annotation.*"];
         }
         if (t instanceof UnionType) {
-            return ["java.io.IOException"];
+            return ["java.io.IOException", "com.fasterxml.jackson.databind.annotation.*"];
         }
         if (t instanceof EnumType) {
-            return ["java.io.IOException"];
+            return ["java.io.IOException", "com.fasterxml.jackson.databind.annotation.*"];
         }
         return assertNever(t);
     }
@@ -754,7 +778,7 @@ export class JavaRenderer extends ConvenienceRenderer {
     protected importsForClass(c: ClassType): string[] {
         const imports: string[] = [];
         this.forEachClassProperty(c, "none", (_name, _jsonName, p) => {
-            this.javaImport(p.type).forEach((imp) => imports.push(imp));
+            this.javaImport(p.type).forEach(imp => imports.push(imp));
         });
         imports.sort();
         return [...new Set(imports)];
@@ -764,7 +788,7 @@ export class JavaRenderer extends ConvenienceRenderer {
         const imports: string[] = [];
         const [, nonNulls] = removeNullFromUnion(u);
         this.forEachUnionMember(u, nonNulls, "none", null, (_fieldName, t) => {
-            this.javaImport(t).forEach((imp) => imports.push(imp));
+            this.javaImport(t).forEach(imp => imports.push(imp));
         });
         imports.sort();
         return [...new Set(imports)];
@@ -784,22 +808,38 @@ export class JavaRenderer extends ConvenienceRenderer {
                     if (getter.length !== 0) {
                         this.emitLine("@lombok.Getter(onMethod_ = {" + getter.join(", ") + "})");
                     }
-                    if (setter.length !== 0) {
+                    if (setter.length !== 0 && !this._options.lombokImmutable) {
                         this.emitLine("@lombok.Setter(onMethod_ = {" + setter.join(", ") + "})");
                     }
                 }
                 this.emitLine("private ", this.javaType(false, p.type, true), " ", name, ";");
             });
+            if (this._options.lombok && this._options.lombokImmutable) {
+                this.emitLine();
+                this.emitLine('@JsonPOJOBuilder(withPrefix = "")');
+                this.emitLine("public static class ", className, "Builder implements ", className, "BuilderMeta {}");
+                this.emitBlock(["private interface ", className, "BuilderMeta"], () => {
+                    this.forEachClassProperty(c, "none", (name, jsonName, p) => {
+                        const rendered = this.javaType(false, p.type);
+                        this.annotationsForAccessor(c, className, name, jsonName, p, true).forEach(annotation =>
+                            this.emitLine(annotation)
+                        );
+                        this.emitLine(className, "Builder ", name, "(", rendered, " value);");
+                    });
+                });
+            }
             if (!this._options.lombok) {
                 this.forEachClassProperty(c, "leading-and-interposing", (name, jsonName, p) => {
                     this.emitDescription(this.descriptionForClassProperty(c, jsonName));
                     const [getterName, setterName] = defined(this._gettersAndSettersForPropertyName.get(name));
                     const rendered = this.javaType(false, p.type);
-                    this.annotationsForAccessor(c, className, name, jsonName, p, false)
-                        .forEach(annotation => this.emitLine(annotation));
+                    this.annotationsForAccessor(c, className, name, jsonName, p, false).forEach(annotation =>
+                        this.emitLine(annotation)
+                    );
                     this.emitLine("public ", rendered, " ", getterName, "() { return ", name, "; }");
-                    this.annotationsForAccessor(c, className, name, jsonName, p, true)
-                        .forEach(annotation => this.emitLine(annotation));
+                    this.annotationsForAccessor(c, className, name, jsonName, p, true).forEach(annotation =>
+                        this.emitLine(annotation)
+                    );
                     this.emitLine("public void ", setterName, "(", rendered, " value) { this.", name, " = value; }");
                 });
             }
@@ -856,7 +896,7 @@ export class JavaRenderer extends ConvenienceRenderer {
         this.emitFileHeader(enumName, this.importsForType(e));
         this.emitDescription(this.descriptionForType(e));
         const caseNames: Sourcelike[] = [];
-        this.forEachEnumCase(e, "none", (name) => {
+        this.forEachEnumCase(e, "none", name => {
             if (caseNames.length > 0) caseNames.push(", ");
             caseNames.push(name);
         });
@@ -900,11 +940,10 @@ export class JavaRenderer extends ConvenienceRenderer {
 }
 
 export class JacksonRenderer extends JavaRenderer {
-
     constructor(
         targetLanguage: TargetLanguage,
         renderContext: RenderContext,
-        options: OptionValues<typeof javaOptions>,
+        options: OptionValues<typeof javaOptions>
     ) {
         super(targetLanguage, renderContext, options);
     }
@@ -918,7 +957,7 @@ export class JacksonRenderer extends JavaRenderer {
         "JsonParser",
         "JsonProcessingException",
         "DeserializationContext",
-        "SerializerProvider",
+        "SerializerProvider"
     ];
 
     protected emitClassAttributes(c: ClassType, _className: Name): void {
@@ -938,9 +977,7 @@ export class JacksonRenderer extends JavaRenderer {
     ): string[] {
         const superAnnotations = super.annotationsForAccessor(_c, _className, _propertyName, jsonName, p, _isSetter);
 
-        const annotations: string[] = [
-            ('@JsonProperty("' + stringEscape(jsonName) + '")')
-        ];
+        const annotations: string[] = ['@JsonProperty("' + stringEscape(jsonName) + '")'];
 
         switch (p.type.kind) {
             case "date-time":
@@ -967,7 +1004,8 @@ export class JacksonRenderer extends JavaRenderer {
         }
         if (t instanceof UnionType) {
             const imports = super.importsForType(t);
-            imports.push("java.io.IOException",
+            imports.push(
+                "java.io.IOException",
                 "com.fasterxml.jackson.core.*",
                 "com.fasterxml.jackson.databind.*",
                 "com.fasterxml.jackson.databind.annotation.*"
@@ -1011,15 +1049,33 @@ export class JacksonRenderer extends JavaRenderer {
         ): void => {
             switch (kind) {
                 case "date":
-                    this.emitLine("value.", fieldName, " = ", this._dateTimeProvider.convertStringToDate(parseFrom), ";");
+                    this.emitLine(
+                        "value.",
+                        fieldName,
+                        " = ",
+                        this._dateTimeProvider.convertStringToDate(parseFrom),
+                        ";"
+                    );
 
                     break;
                 case "time":
-                    this.emitLine("value.", fieldName, " = ", this._dateTimeProvider.convertStringToTime(parseFrom), ";");
+                    this.emitLine(
+                        "value.",
+                        fieldName,
+                        " = ",
+                        this._dateTimeProvider.convertStringToTime(parseFrom),
+                        ";"
+                    );
 
                     break;
                 case "date-time":
-                    this.emitLine("value.", fieldName, " = ", this._dateTimeProvider.convertStringToDateTime(parseFrom), ";");
+                    this.emitLine(
+                        "value.",
+                        fieldName,
+                        " = ",
+                        this._dateTimeProvider.convertStringToDateTime(parseFrom),
+                        ";"
+                    );
                     break;
                 case "uuid":
                     this.emitLine("value.", fieldName, " = UUID.fromString(", parseFrom, ");");
@@ -1041,7 +1097,7 @@ export class JacksonRenderer extends JavaRenderer {
                     rendered,
                     ">() {});"
                 );
-            } else if (stringBasedObjects.some((stringBasedTypeKind) => t.kind === stringBasedTypeKind)) {
+            } else if (stringBasedObjects.some(stringBasedTypeKind => t.kind === stringBasedTypeKind)) {
                 emitDeserializerCodeForStringObjects(fieldName, t.kind, variableFieldName);
             } else if (t.kind === "string") {
                 this.emitLine("value.", fieldName, " = ", variableFieldName, ";");
@@ -1073,7 +1129,7 @@ export class JacksonRenderer extends JavaRenderer {
             const stringType = u.findMember("string");
 
             if (
-                stringBasedObjects.every((kind) => u.findMember(kind) === undefined) &&
+                stringBasedObjects.every(kind => u.findMember(kind) === undefined) &&
                 stringType === undefined &&
                 enumType === undefined
             )
@@ -1086,7 +1142,7 @@ export class JacksonRenderer extends JavaRenderer {
                     const fromVariable = "string";
                     this.emitLine("String " + fromVariable + " = jsonParser.readValueAs(String.class);");
 
-                    stringBasedObjects.forEach((kind) => {
+                    stringBasedObjects.forEach(kind => {
                         const type = u.findMember(kind);
                         if (type !== undefined) {
                             this.emitIgnoredTryCatchBlock(() => {
@@ -1152,7 +1208,7 @@ export class JacksonRenderer extends JavaRenderer {
             let { fieldName } = this.unionField(u, t, true);
 
             this.emitBlock(["if (obj.", fieldName, " != null)"], () => {
-                if (customObjectSerializer.some((customSerializerType) => t.kind === customSerializerType)) {
+                if (customObjectSerializer.some(customSerializerType => t.kind === customSerializerType)) {
                     this.emitLine("jsonGenerator.writeObject(", serializerCodeForType(t, ["obj.", fieldName]), ");");
                 } else {
                     this.emitLine("jsonGenerator.writeObject(obj.", fieldName, ");");
@@ -1170,7 +1226,7 @@ export class JacksonRenderer extends JavaRenderer {
                 [
                     "public ",
                     unionName,
-                    " deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException, JsonProcessingException",
+                    " deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException, JsonProcessingException"
                 ],
                 () => {
                     this.emitLine(unionName, " value = new ", unionName, "();");
@@ -1197,7 +1253,7 @@ export class JacksonRenderer extends JavaRenderer {
                 [
                     "public void serialize(",
                     unionName,
-                    " obj, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException",
+                    " obj, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException"
                 ],
                 () => {
                     for (const t of nonNulls) {
@@ -1225,7 +1281,13 @@ export class JacksonRenderer extends JavaRenderer {
         this.emitLine("SimpleModule module = new SimpleModule();");
 
         if (this._dateTimeProvider.shouldEmitDateTimeConverter) {
-            this.emitLine("module.addDeserializer(", this._dateTimeProvider.dateTimeType, ".class, new JsonDeserializer<", this._dateTimeProvider.dateTimeType, ">() {");
+            this.emitLine(
+                "module.addDeserializer(",
+                this._dateTimeProvider.dateTimeType,
+                ".class, new JsonDeserializer<",
+                this._dateTimeProvider.dateTimeType,
+                ">() {"
+            );
             this.indent(() => {
                 this.emitLine("@Override");
                 this.emitBlock(
@@ -1245,7 +1307,13 @@ export class JacksonRenderer extends JavaRenderer {
         }
 
         if (!this._dateTimeProvider.shouldEmitTimeConverter) {
-            this.emitLine("module.addDeserializer(", this._dateTimeProvider.timeType, ".class, new JsonDeserializer<", this._dateTimeProvider.timeType, ">() {");
+            this.emitLine(
+                "module.addDeserializer(",
+                this._dateTimeProvider.timeType,
+                ".class, new JsonDeserializer<",
+                this._dateTimeProvider.timeType,
+                ">() {"
+            );
             this.indent(() => {
                 this.emitLine("@Override");
                 this.emitBlock(
@@ -1265,7 +1333,13 @@ export class JacksonRenderer extends JavaRenderer {
         }
 
         if (!this._dateTimeProvider.shouldEmitDateConverter) {
-            this.emitLine("module.addDeserializer(", this._dateTimeProvider.dateType, ".class, new JsonDeserializer<", this._dateTimeProvider.dateType, ">() {");
+            this.emitLine(
+                "module.addDeserializer(",
+                this._dateTimeProvider.dateType,
+                ".class, new JsonDeserializer<",
+                this._dateTimeProvider.dateType,
+                ">() {"
+            );
             this.indent(() => {
                 this.emitLine("@Override");
                 this.emitBlock(
@@ -1294,10 +1368,12 @@ export class JacksonRenderer extends JavaRenderer {
             "",
             this._options.lombok ? "    org.projectlombok : lombok : 1.18.2" : "",
             "    com.fasterxml.jackson.core     : jackson-databind          : 2.9.0",
-            this._options.dateTimeProvider === "java8" ? "    com.fasterxml.jackson.datatype : jackson-datatype-jsr310   : 2.9.0" : "",
+            this._options.dateTimeProvider === "java8"
+                ? "    com.fasterxml.jackson.datatype : jackson-datatype-jsr310   : 2.9.0"
+                : "",
             "",
             "Import this package:",
-            "",
+            ""
         ]);
         this.emitLine("//     import ", this._options.packageName, ".Converter;");
         this.emitMultiline(`//
@@ -1319,7 +1395,7 @@ export class JacksonRenderer extends JavaRenderer {
             "com.fasterxml.jackson.databind.module.SimpleModule",
             "com.fasterxml.jackson.core.JsonParser",
             "com.fasterxml.jackson.core.JsonProcessingException",
-            "java.util.*",
+            "java.util.*"
         ].concat(this._dateTimeProvider.converterImports);
         this.emitPackageAndImports(imports);
         this.ensureBlankLine();
@@ -1336,7 +1412,7 @@ export class JacksonRenderer extends JavaRenderer {
                         topLevelTypeRendered,
                         " ",
                         this.decoderName(topLevelName),
-                        "(String json) throws IOException",
+                        "(String json) throws IOException"
                     ],
                     () => {
                         this.emitLine("return ", this.readerGetterName(topLevelName), "().readValue(json);");
@@ -1349,7 +1425,7 @@ export class JacksonRenderer extends JavaRenderer {
                         this.encoderName(topLevelName),
                         "(",
                         topLevelTypeRendered,
-                        " obj) throws JsonProcessingException",
+                        " obj) throws JsonProcessingException"
                     ],
                     () => {
                         this.emitLine("return ", this.writerGetterName(topLevelName), "().writeValueAsString(obj);");
@@ -1405,5 +1481,4 @@ export class JacksonRenderer extends JavaRenderer {
         this.emitConverterClass();
         super.emitSourceStructure();
     }
-
 }
