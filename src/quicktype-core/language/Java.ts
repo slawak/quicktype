@@ -812,21 +812,35 @@ export class JavaRenderer extends ConvenienceRenderer {
                         this.emitLine("@lombok.Setter(onMethod_ = {" + setter.join(", ") + "})");
                     }
                 }
-                this.emitLine("private ", this.javaType(false, p.type, true), " ", name, ";");
+                if (this._options.lombokImmutable) {
+                    this.emitLine("private final ", this.javaType(false, p.type, true), " ", name, ";");
+                } else {
+                    this.emitLine("private ", this.javaType(false, p.type, true), " ", name, ";");
+                }
             });
             if (this._options.lombok && this._options.lombokImmutable) {
                 this.emitLine();
                 this.emitLine('@JsonPOJOBuilder(withPrefix = "")');
-                this.emitLine("public static class ", className, "Builder implements ", className, "BuilderMeta {}");
-                this.emitBlock(["private interface ", className, "BuilderMeta"], () => {
-                    this.forEachClassProperty(c, "none", (name, jsonName, p) => {
-                        const rendered = this.javaType(false, p.type);
-                        this.annotationsForAccessor(c, className, name, jsonName, p, true).forEach(annotation =>
-                            this.emitLine(annotation)
-                        );
-                        this.emitLine(className, "Builder ", name, "(", rendered, " value);");
+                if (this._options.lombokCopyAnnotations) {
+                    this.emitLine(
+                        "public static class ",
+                        className,
+                        "Builder implements ",
+                        className,
+                        "BuilderMeta {}"
+                    );
+                    this.emitBlock(["private interface ", className, "BuilderMeta"], () => {
+                        this.forEachClassProperty(c, "none", (name, jsonName, p) => {
+                            const rendered = this.javaType(false, p.type);
+                            this.annotationsForAccessor(c, className, name, jsonName, p, true).forEach(annotation =>
+                                this.emitLine(annotation)
+                            );
+                            this.emitLine(className, "Builder ", name, "(", rendered, " value);");
+                        });
                     });
-                });
+                } else {
+                    this.emitLine("public static class ", className, "Builder {}");
+                }
             }
             if (!this._options.lombok) {
                 this.forEachClassProperty(c, "leading-and-interposing", (name, jsonName, p) => {
