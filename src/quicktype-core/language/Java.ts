@@ -770,7 +770,7 @@ export class JavaRenderer extends ConvenienceRenderer {
             return ["java.io.IOException", "com.fasterxml.jackson.databind.annotation.*"];
         }
         if (t instanceof EnumType) {
-            return ["java.io.IOException", "com.fasterxml.jackson.databind.annotation.*"];
+            return ["java.io.IOException"];
         }
         return assertNever(t);
     }
