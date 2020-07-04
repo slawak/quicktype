@@ -806,7 +806,11 @@ export class JavaRenderer extends ConvenienceRenderer {
                     const getter = this.annotationsForAccessor(c, className, name, jsonName, p, false);
                     const setter = this.annotationsForAccessor(c, className, name, jsonName, p, true);
                     if (getter.length !== 0) {
-                        this.emitLine("@lombok.Getter(onMethod_ = {" + getter.join(", ") + "})");
+                        if (this._options.lombokImmutable) {
+                            getter.forEach(annotation => this.emitLine(annotation));
+                        } else {
+                            this.emitLine("@lombok.Getter(onMethod_ = {" + getter.join(", ") + "})");
+                        }
                     }
                     if (setter.length !== 0 && !this._options.lombokImmutable) {
                         this.emitLine("@lombok.Setter(onMethod_ = {" + setter.join(", ") + "})");
