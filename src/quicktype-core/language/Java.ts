@@ -51,7 +51,7 @@ export const javaOptions = {
     packageName: new StringOption("package", "Generated package name", "NAME", "io.quicktype"),
     lombok: new BooleanOption("lombok", "Use lombok", false, "primary"),
     lombokCopyAnnotations: new BooleanOption("lombok-copy-annotations", "Copy accessor annotations", true, "secondary"),
-    lombokImmutable: new BooleanOption("lombok-immutable", "Immutable annotations", true, "secondary")
+    lombokImmutable: new BooleanOption("lombok-immutable", "Immutable annotations", false, "secondary")
 };
 
 export class JavaTargetLanguage extends TargetLanguage {
