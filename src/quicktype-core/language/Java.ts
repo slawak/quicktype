@@ -764,10 +764,18 @@ export class JavaRenderer extends ConvenienceRenderer {
 
     protected importsForType(t: ClassType | UnionType | EnumType): string[] {
         if (t instanceof ClassType) {
-            return ["com.fasterxml.jackson.databind.annotation.*"];
+            if (this._options.lombok && this._options.lombokImmutable) {
+                return ["com.fasterxml.jackson.databind.annotation.*"];
+            } else {
+                return [];
+            }
         }
         if (t instanceof UnionType) {
-            return ["java.io.IOException", "com.fasterxml.jackson.databind.annotation.*"];
+            if (this._options.lombok && this._options.lombokImmutable) {
+                return ["java.io.IOException", "com.fasterxml.jackson.databind.annotation.*"];
+            } else {
+                return ["java.io.IOException"];
+            }
         }
         if (t instanceof EnumType) {
             return ["java.io.IOException"];
